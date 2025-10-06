@@ -1,0 +1,53 @@
+name: Deploy React to S3                  # Name of the GitHub Actions workflow
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+
+jobs: 
+  deploy:
+    runs-on: ubuntu-latest                # Runs the job on GitHub's Ubuntu VM
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4         # Pulls your code from GitHub into the VM
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'              # Installs Node.js version 18 for build tools
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install                  # Installs project dependencies from package.json
+
+      # - name: Run lint
+      #   run: yarn lint
+        
+      # - name: Run tests
+      #   run: yarn tes
+
+      - name: Build project
+        run: yarn run build                # Creates a production build of the React app 
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@main # Or a specific version
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      - name: Additional steps
+        run: |
+          # Your commands that require AWS credentials
+          aws sts get-caller-identity
+
+      - name: Deploy to S3
+        run: aws s3 sync dist/ s3://${{ secrets.AWS_S3_BUCKET }} --delete   # Uploads the build folder to S3 and deletes removed files
